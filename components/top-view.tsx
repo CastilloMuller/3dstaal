@@ -217,8 +217,13 @@ export default function TopView({
     })
 
     itemsWithNames.forEach((item) => {
+      // Bereken de extra ruimte voor de opening in het staal
+      // 1mm extra aan elke kant voor standaard dagmaten
+      const extraWidth = item.type === "loopdeur" ? 0.002 : 0.002 // 2mm extra voor loopdeur, 2mm voor sectionaaldeur
+
       const itemWidth = item.width / 1000 // Convert mm to meters
       const itemPosition = item.position // Position is already in meters
+      const steelOpeningWidth = itemWidth + extraWidth
 
       // Bepaal de kleur voor het item op basis van het type
       let itemColor = "lightblue"
@@ -239,6 +244,10 @@ export default function TopView({
       let itemY = 0
       let itemDisplayWidth = 0
       let itemDisplayHeight = 0
+      let steelX = 0
+      let steelY = 0
+      let steelDisplayWidth = 0
+      let steelDisplayHeight = 0
 
       switch (position) {
         case "top": // Achterkant (bovenaan in bovenaanzicht)
@@ -247,18 +256,36 @@ export default function TopView({
           itemY = startY - itemThickness * scale
           itemDisplayWidth = itemWidth * scale
           itemDisplayHeight = itemThickness * scale
+
+          // Staalopening (iets groter)
+          steelX = startX + (wallLength - itemPosition - itemWidth - extraWidth / 2) * scale
+          steelY = startY - itemThickness * scale
+          steelDisplayWidth = steelOpeningWidth * scale
+          steelDisplayHeight = itemThickness * scale
           break
         case "bottom": // Voorkant (onderaan in bovenaanzicht)
           itemX = startX + itemPosition * scale
           itemY = startY
           itemDisplayWidth = itemWidth * scale
           itemDisplayHeight = itemThickness * scale
+
+          // Staalopening (iets groter)
+          steelX = startX + (itemPosition - extraWidth / 2) * scale
+          steelY = startY
+          steelDisplayWidth = steelOpeningWidth * scale
+          steelDisplayHeight = itemThickness * scale
           break
         case "left": // Linkerkant (links in bovenaanzicht)
           itemX = startX - itemThickness * scale
           itemY = startY + itemPosition * scale
           itemDisplayWidth = itemThickness * scale
           itemDisplayHeight = itemWidth * scale
+
+          // Staalopening (iets groter)
+          steelX = startX - itemThickness * scale
+          steelY = startY + (itemPosition - extraWidth / 2) * scale
+          steelDisplayWidth = itemThickness * scale
+          steelDisplayHeight = steelOpeningWidth * scale
           break
         case "right": // Rechterkant (rechts in bovenaanzicht)
           // Volledig omgekeerde positionering voor de rechterkant
@@ -266,8 +293,21 @@ export default function TopView({
           itemY = startY + (wallLength - itemPosition - itemWidth) * scale
           itemDisplayWidth = itemThickness * scale
           itemDisplayHeight = itemWidth * scale
+
+          // Staalopening (iets groter)
+          steelX = startX
+          steelY = startY + (wallLength - itemPosition - itemWidth - extraWidth / 2) * scale
+          steelDisplayWidth = itemThickness * scale
+          steelDisplayHeight = steelOpeningWidth * scale
           break
       }
+
+      // Teken eerst de staalopening met stippellijn
+      // ctx.setLineDash([5, 5])
+      // ctx.strokeStyle = "#555555"
+      // ctx.strokeRect(steelX, steelY, steelDisplayWidth, steelDisplayHeight)
+      // ctx.setLineDash([])
+      // ctx.strokeStyle = "black"
 
       // Teken het item
       ctx.fillStyle = itemColor
@@ -288,18 +328,45 @@ export default function TopView({
       // Zorg voor consistente afstanden tussen labels (gebruik dezelfde labelYOffset als in 2D views)
       const labelYOffset = 25
 
+      // Bereken de aangepaste afmetingen voor deuren
+      const panelThicknessValue = 60 // Gebruik een vaste waarde van 60mm
+      const doorOpeningTypeValue = "Dagmaten + isolatie" // Gebruik een vaste waarde
+      let itemDisplayWidthMM = item.width
+
+      if (
+        (item.type === "sectionaaldeur" || item.type === "loopdeur") &&
+        doorOpeningTypeValue === "Dagmaten + isolatie"
+      ) {
+        itemDisplayWidthMM = item.width + panelThicknessValue * 2 // Voeg twee keer de paneeldikte toe aan de breedte
+      } else {
+        // Voor standaard dagmaten, voeg 2mm toe voor speling
+        itemDisplayWidthMM = item.width + 2
+      }
+
       switch (position) {
         case "top":
           labelX = itemX + itemDisplayWidth / 2
           labelY = itemY - 10
           nameX = labelX
           nameY = itemY - labelYOffset
+
+          // Teken de breedte
+          ctx.fillText(`${itemDisplayWidthMM}mm`, labelX, labelY)
+
+          // Teken de naam
+          ctx.fillText(item.displayName, nameX, nameY)
           break
         case "bottom":
           labelX = itemX + itemDisplayWidth / 2
           labelY = itemY + itemDisplayHeight + 20
           nameX = labelX
           nameY = itemY + itemDisplayHeight + labelYOffset
+
+          // Teken de breedte
+          ctx.fillText(`${itemDisplayWidthMM}mm`, labelX, labelY)
+
+          // Teken de naam
+          ctx.fillText(item.displayName, nameX, nameY)
           break
         case "left":
           labelX = itemX - 10
@@ -310,7 +377,7 @@ export default function TopView({
           ctx.translate(labelX, labelY)
           ctx.rotate(-Math.PI / 2)
           ctx.textAlign = "center"
-          ctx.fillText(`${item.width}mm`, 0, 0)
+          ctx.fillText(`${itemDisplayWidthMM}mm`, 0, 0)
           ctx.restore()
 
           // Teken de naam
@@ -320,7 +387,7 @@ export default function TopView({
           ctx.textAlign = "center"
           ctx.fillText(item.displayName, 0, 0)
           ctx.restore()
-          return // Skip regular label drawing
+          break
         case "right":
           labelX = itemX + itemDisplayWidth + 10
           labelY = itemY + itemDisplayHeight / 2
@@ -330,7 +397,7 @@ export default function TopView({
           ctx.translate(labelX, labelY)
           ctx.rotate(-Math.PI / 2)
           ctx.textAlign = "center"
-          ctx.fillText(`${item.width}mm`, 0, 0)
+          ctx.fillText(`${itemDisplayWidthMM}mm`, 0, 0)
           ctx.restore()
 
           // Teken de naam
@@ -340,14 +407,8 @@ export default function TopView({
           ctx.textAlign = "center"
           ctx.fillText(item.displayName, 0, 0)
           ctx.restore()
-          return // Skip regular label drawing
+          break
       }
-
-      // Teken de breedte
-      ctx.fillText(`${item.width}mm`, labelX, labelY)
-
-      // Teken de naam
-      ctx.fillText(item.displayName, nameX, nameY)
     })
 
     // Teken afstanden tussen items en tot de randen als er meer dan één item is
@@ -722,4 +783,3 @@ export default function TopView({
     </Card>
   )
 }
-

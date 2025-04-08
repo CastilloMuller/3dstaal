@@ -186,4 +186,3 @@ export default function DataLoader({ onLoadData }: DataLoaderProps) {
     </Card>
   )
 }
-

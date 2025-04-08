@@ -308,6 +308,23 @@ export default function Home() {
     return null
   }
 
+  // Pas de afstanden aan in de Item functie
+  // Wijzig de code die de afstanden berekent
+
+  // Bereken de aangepaste afmetingen voor deuren
+  const getAdjustedItemDimensions = (item, panelThickness, doorOpeningType) => {
+    let extraWidth = 0
+
+    if ((item.type === "sectionaaldeur" || item.type === "loopdeur") && doorOpeningType === "Dagmaten + isolatie") {
+      const panelThicknessInMM = Number.parseInt(panelThickness.replace("mm", ""))
+      extraWidth = (panelThicknessInMM * 2) / 1000 // Convert to meters
+    } else {
+      extraWidth = 0.002 // 2mm extra voor standaard dagmaten
+    }
+
+    return extraWidth
+  }
+
   // Vervang de bestaande Tabs component met deze aangepaste versie
   return (
     <main className="flex flex-col bg-white min-h-screen">
@@ -507,6 +524,8 @@ export default function Home() {
             onSelectItem={setSelectedItem}
             selectedItem={selectedItem}
             showDebug={showDebug}
+            panelThickness={panelThickness}
+            doorOpeningType={doorOpeningType}
           />
           <OrbitControls />
         </Canvas>
@@ -543,6 +562,8 @@ type SteelStructureProps = {
   onSelectItem: (id: string | null) => void
   selectedItem: string | null
   showDebug: boolean
+  panelThickness: string
+  doorOpeningType: string
 }
 
 // Voeg een nieuwe functie toe voor de horizontale gordingen in het schuine dakvlak van de voor- en achterkant
@@ -597,6 +618,8 @@ function SteelStructure({
   onSelectItem,
   selectedItem,
   showDebug,
+  panelThickness,
+  doorOpeningType,
 }: SteelStructureProps) {
   // In de SteelStructure functie, vervang de bestaande spanThickness en purlinThickness definities met:
 
@@ -801,6 +824,8 @@ function SteelStructure({
         purlinColor={purlinColor}
         onSelectItem={onSelectItem}
         selectedItem={selectedItem}
+        panelThickness={panelThickness}
+        doorOpeningType={doorOpeningType}
       />
 
       {/* Orientation Gizmos - conditionally rendered for each side */}
@@ -818,6 +843,21 @@ function SteelStructure({
   )
 }
 
+type ItemsProps = {
+  items: ItemData[]
+  previewItem: Omit<ItemData, "id"> | null
+  width: number
+  length: number
+  gutterHeight: number
+  purlinWidth: number
+  purlinDepth: number
+  purlinColor: string
+  onSelectItem: (id: string | null) => void
+  selectedItem: string | null
+  panelThickness: string
+  doorOpeningType: string
+}
+
 function Items({
   items,
   previewItem,
@@ -829,7 +869,9 @@ function Items({
   purlinColor,
   onSelectItem,
   selectedItem,
-}) {
+  panelThickness,
+  doorOpeningType,
+}: ItemsProps) {
   return (
     <group>
       {items.map((item) => (
@@ -845,6 +887,8 @@ function Items({
           isSelected={item.id === selectedItem}
           onSelect={() => onSelectItem(item.id)}
           isPreview={false}
+          panelThickness={panelThickness}
+          doorOpeningType={doorOpeningType}
         />
       ))}
       {previewItem && (
@@ -860,6 +904,8 @@ function Items({
           isSelected={false}
           onSelect={() => {}}
           isPreview={true}
+          panelThickness={panelThickness}
+          doorOpeningType={doorOpeningType}
         />
       )}
     </group>
@@ -1479,6 +1525,8 @@ function Item({
   isSelected,
   onSelect,
   isPreview,
+  panelThickness,
+  doorOpeningType,
 }) {
   // Convert mm to meters
   const itemWidth = item.width / 1000
@@ -1522,13 +1570,46 @@ function Item({
   const itemPurlinWidth = purlinWidth
   const itemPurlinDepth = purlinDepth
 
+  // Pas de afstanden aan in de Item functie
+  // Wijzig de code die de afstanden berekent
+
+  // Bereken de aangepaste afmetingen voor deuren
+  const getAdjustedItemDimensions = (item, panelThickness, doorOpeningType) => {
+    let extraWidth = 0
+
+    if ((item.type === "sectionaaldeur" || item.type === "loopdeur") && doorOpeningType === "Dagmaten + isolatie") {
+      const panelThicknessInMM = Number.parseInt(panelThickness.replace("mm", ""))
+      extraWidth = (panelThicknessInMM * 2) / 1000 // Convert to meters
+    } else {
+      extraWidth = 0.002 // 2mm extra voor standaard dagmaten
+    }
+
+    return extraWidth
+  }
+
+  // In de Item functie, pas de afstandsberekening aan:
   // Calculate distances to wall edges
   let distanceToLeft = 0
-  let distanceToRight = 0
+
+  // Bereken de extra breedte voor de opening
+  const extraWidth = getAdjustedItemDimensions(item, panelThickness, doorOpeningType)
 
   // Correctie voor de afstandsberekening - consistent voor alle wanden
-  distanceToLeft = itemPosition * 1000
-  distanceToRight = Math.max(0, (wallWidth - itemPosition - itemWidth) * 1000)
+  // Verminder de afstanden met de helft van de extra breedte
+  distanceToLeft = (itemPosition - extraWidth / 2) * 1000
+  const distanceToRight = Math.max(0, (wallWidth - itemPosition - itemWidth - extraWidth / 2) * 1000)
+
+  // Pas ook de weergave van de afmetingen aan:
+  // Item dimensions (inside) - show width and height
+  const displayWidth = item.width + extraWidth * 1000
+  const displayHeight =
+    item.type === "raam"
+      ? item.height + 2
+      : // Voor ramen alleen 2mm extra
+        doorOpeningType === "Dagmaten + isolatie"
+        ? item.height + Number.parseInt(panelThickness.replace("mm", ""))
+        : // Voor deuren met isolatie
+          item.height + 2 // Voor deuren zonder isolatie
 
   // Bepaal de kleur voor de breedte-weergave op basis van het type item
   let itemWidthColor = "black"
@@ -1641,7 +1722,7 @@ function Item({
           )}
         </group>
 
-        {/* Item dimensions (inside) - simplified to only show width */}
+        {/* Item dimensions (inside) - show width and height */}
         {item.wall === "left" || item.wall === "right" ? (
           <Text
             position={[0, 0, 0.01]}
@@ -1654,7 +1735,7 @@ function Item({
             depthTest={false}
             scale={[1, 1, 1]} // Ensure positive scale
           >
-            {`${item.width}mm`}
+            {`${displayWidth}×${displayHeight}mm`}
           </Text>
         ) : (
           <Text
@@ -1668,7 +1749,7 @@ function Item({
             depthTest={false}
             scale={[1, 1, 1]} // Ensure positive scale
           >
-            {`${item.width}mm`}
+            {`${displayWidth}×${displayHeight}mm`}
           </Text>
         )}
       </group>
@@ -1966,4 +2047,3 @@ function RoofPurlinsComponent({
     </group>
   )
 }
-

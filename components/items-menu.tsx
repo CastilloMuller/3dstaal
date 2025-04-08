@@ -56,7 +56,7 @@ export default function ItemsMenu({ walls, onAddItem, onPreviewItem, panelThickn
     }
   }
 
-  // Update de handleItemTypeChange functie om automatisch een naam te genereren
+  // Wijzig de handleItemTypeChange functie om de standaardwaarden aan te passen voor deuren en ramen
   const handleItemTypeChange = (type: ItemType) => {
     setItemType(type)
 
@@ -70,7 +70,7 @@ export default function ItemsMenu({ walls, onAddItem, onPreviewItem, panelThickn
       setHeight(2300)
       setElevation(0)
     } else if (type === "raam") {
-      setWidth(2000)
+      setWidth(1000)
       setHeight(1000)
       setElevation(1000)
     }
@@ -484,4 +484,3 @@ export default function ItemsMenu({ walls, onAddItem, onPreviewItem, panelThickn
     </Card>
   )
 }
-

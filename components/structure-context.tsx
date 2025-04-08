@@ -109,4 +109,3 @@ export function useStructure() {
   }
   return context
 }
-

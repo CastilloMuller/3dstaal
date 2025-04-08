@@ -646,4 +646,3 @@ function getItemTypeName(type: string): string {
       return "Item"
   }
 }
-

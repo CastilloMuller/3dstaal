@@ -133,6 +133,11 @@ export default function TwoDPanelsView({
         }`
       }
 
+      // Bereken de extra ruimte voor de opening in het staal
+      // 1mm extra aan elke kant voor standaard dagmaten
+      const extraWidth = item.type === "loopdeur" ? 2 : 2 // 2mm extra voor loopdeur, 2mm voor sectionaaldeur
+      const extraHeight = item.type === "loopdeur" ? 2 : 2 // 2mm extra voor loopdeur, 2mm voor sectionaaldeur
+
       const itemWidth = item.width / 1000 // Convert mm to meters
       const itemHeight = item.height / 1000 // Convert mm to meters
       const itemX = item.position // Position is already in meters
@@ -170,6 +175,20 @@ export default function TwoDPanelsView({
       ctx.fillRect(canvasX, canvasY, itemWidth * scale, itemHeight * scale)
       ctx.strokeRect(canvasX, canvasY, itemWidth * scale, itemHeight * scale)
 
+      // Bereken de aangepaste afmetingen voor deuren als 'Dagmaten + isolatie' is geselecteerd
+      let displayWidth = item.width
+      let displayHeight = item.height
+      let steelOpeningWidth = item.width + extraWidth
+      let steelOpeningHeight = item.height + extraHeight
+
+      if ((item.type === "sectionaaldeur" || item.type === "loopdeur") && doorOpeningType === "Dagmaten + isolatie") {
+        const panelThicknessInMM = Number.parseInt(panelThickness.replace("mm", ""))
+        displayWidth = item.width + panelThicknessInMM * 2 // Voeg twee keer de paneeldikte toe aan de breedte
+        displayHeight = item.height + panelThicknessInMM // Voeg één keer de paneeldikte toe aan de hoogte
+        steelOpeningWidth = item.width + extraWidth + panelThicknessInMM * 2
+        steelOpeningHeight = item.height + extraHeight + panelThicknessInMM
+      }
+
       // Als het een deur is en 'Dagmaten + isolatie' is geselecteerd, teken dan okergele lijnen aan de binnenkant
       if ((item.type === "sectionaaldeur" || item.type === "loopdeur") && doorOpeningType === "Dagmaten + isolatie") {
         ctx.strokeStyle = "#DAA520" // Okergeel
@@ -199,23 +218,21 @@ export default function TwoDPanelsView({
         ctx.lineWidth = 2
       }
 
-      // Teken de item naam
-      ctx.fillStyle = itemTextColor
-      ctx.font = "16px Arial"
-      ctx.textAlign = "center"
-      ctx.fillText(itemName, canvasX + (itemWidth * scale) / 2, canvasY - 25)
-
       // Bereken de aangepaste afmetingen voor deuren als 'Dagmaten + isolatie' is geselecteerd
-      let displayWidth = item.width
-      let displayHeight = item.height
+      displayWidth = item.width
+      displayHeight = item.height
 
       if ((item.type === "sectionaaldeur" || item.type === "loopdeur") && doorOpeningType === "Dagmaten + isolatie") {
         const panelThicknessInMM = Number.parseInt(panelThickness.replace("mm", ""))
         displayWidth = item.width + panelThicknessInMM * 2 // Voeg twee keer de paneeldikte toe aan de breedte
         displayHeight = item.height + panelThicknessInMM // Voeg één keer de paneeldikte toe aan de hoogte
+      } else {
+        // Voor standaard dagmaten, voeg 2mm toe voor speling
+        displayWidth = item.width + 2
+        displayHeight = item.height + 2
       }
 
-      // Teken de item breedte in de juiste kleur met eventueel aangepaste afmetingen
+      // Teken de item afmetingen in de juiste kleur
       ctx.fillText(
         `${displayWidth}×${displayHeight}mm`,
         canvasX + (itemWidth * scale) / 2,
@@ -924,4 +941,3 @@ export default function TwoDPanelsView({
     </Card>
   )
 }
-

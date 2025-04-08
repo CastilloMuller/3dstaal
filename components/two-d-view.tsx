@@ -23,6 +23,8 @@ type TwoDViewProps = {
   onPrint?: () => void
   canvasRef?: React.RefObject<HTMLCanvasElement>
   structureName?: string
+  doorOpeningType?: string
+  panelThickness?: string
 }
 
 // Gebruik de structureName prop in de component
@@ -34,11 +36,12 @@ export default function TwoDView({
   onPrint,
   canvasRef: externalCanvasRef,
   structureName = "Mijn Structuur", // Default waarde
+  doorOpeningType = "Standaard dagmaten",
+  panelThickness = "40mm",
 }: TwoDViewProps) {
   const internalCanvasRef = useRef<HTMLCanvasElement>(null)
   const canvasRef = externalCanvasRef || internalCanvasRef
   const [scale, setScale] = useState(40) // pixels per meter
-  // const [structureName, setStructureName] = useState("Mijn Structuur") // Tijdelijke aanname
 
   // Render de 2D-weergave wanneer de component mount of wanneer dimensions/items veranderen
   useEffect(() => {
@@ -118,6 +121,11 @@ export default function TwoDView({
         }`
       }
 
+      // Bereken de extra ruimte voor de opening in het staal
+      // 1mm extra aan elke kant voor standaard dagmaten
+      const extraWidth = item.type === "loopdeur" ? 2 : 2 // 2mm extra voor loopdeur, 2mm voor sectionaaldeur
+      const extraHeight = item.type === "loopdeur" ? 2 : 2 // 2mm extra voor loopdeur, 2mm voor sectionaaldeur
+
       const itemWidth = item.width / 1000 // Convert mm to meters
       const itemHeight = item.height / 1000 // Convert mm to meters
       const itemX = item.position // Position is already in meters
@@ -132,7 +140,7 @@ export default function TwoDView({
         itemY = 0
       }
 
-      // Bereken de positie op de canvas
+      // Bereken de positie op de canvas - GEEN SPIEGELING MEER
       const canvasX = startX + itemX * scale
       const canvasY = startY + wallHeight * scale - itemHeight * scale - itemY * scale
 
@@ -155,14 +163,32 @@ export default function TwoDView({
       ctx.fillRect(canvasX, canvasY, itemWidth * scale, itemHeight * scale)
       ctx.strokeRect(canvasX, canvasY, itemWidth * scale, itemHeight * scale)
 
-      // Teken de item naam
+      // Bereken de aangepaste afmetingen voor deuren als 'Dagmaten + isolatie' is geselecteerd
+      let displayWidth = item.width
+      let displayHeight = item.height
+
+      if ((item.type === "sectionaaldeur" || item.type === "loopdeur") && doorOpeningType === "Dagmaten + isolatie") {
+        const panelThicknessInMM = Number.parseInt(panelThickness.replace("mm", ""))
+        displayWidth = item.width + panelThicknessInMM * 2 // Voeg twee keer de paneeldikte toe aan de breedte
+        displayHeight = item.height + panelThicknessInMM // Voeg één keer de paneeldikte toe aan de hoogte
+      } else {
+        // Voor standaard dagmaten, voeg 2mm toe voor speling
+        displayWidth = item.width + 2
+        displayHeight = item.height + 2
+      }
+
+      // Teken de item afmetingen in de juiste kleur
       ctx.fillStyle = itemTextColor
       ctx.font = "16px Arial"
       ctx.textAlign = "center"
-      ctx.fillText(itemName, canvasX + (itemWidth * scale) / 2, canvasY - 25)
+      ctx.fillText(
+        `${displayWidth}×${displayHeight}`,
+        canvasX + (itemWidth * scale) / 2,
+        canvasY + (itemHeight * scale) / 2 + 10,
+      )
 
-      // Teken de item breedte in de juiste kleur
-      ctx.fillText(`${item.width}mm`, canvasX + (itemWidth * scale) / 2, canvasY + (itemHeight * scale) / 2 + 10)
+      // Teken de item naam
+      ctx.fillText(itemName, canvasX + (itemWidth * scale) / 2, canvasY - 25)
     })
 
     // Teken dimension lines voor de hoofdafmetingen
@@ -175,7 +201,7 @@ export default function TwoDView({
       startY + wallHeight * scale + dimensionLineOffset,
       startX + wallWidth * scale,
       startY + wallHeight * scale + dimensionLineOffset,
-      `${Math.round(wallWidth * 1000)}mm`,
+      `${Math.round(wallWidth * 1000)}`,
       false,
       true,
     )
@@ -193,7 +219,7 @@ export default function TwoDView({
       startY,
       startX - 50,
       startY + wallHeight * scale,
-      `${Math.round(wallHeight * 1000)}mm`,
+      `${Math.round(wallHeight * 1000)}`,
       true,
       true,
     )
@@ -206,103 +232,13 @@ export default function TwoDView({
         startY - roofHeight * scale,
         startX - 100,
         startY + wallHeight * scale,
-        `${Math.round(totalHeight * 1000)}mm`,
+        `${Math.round(totalHeight * 1000)}`,
         true,
         true,
       )
     }
 
-    // Teken één dimension line voor alle items met hun afstanden als er meer dan één item is
-    if (wallItems.length > 1) {
-      const itemDimensionY = startY + wallHeight * scale + 100
-
-      // Teken de hoofdlijn zonder de totale breedte
-      ctx.beginPath()
-      ctx.moveTo(startX, itemDimensionY)
-      ctx.lineTo(startX + wallWidth * scale, itemDimensionY)
-      ctx.stroke()
-
-      // Voeg label "Afstanden" toe boven de dimensielijn
-      ctx.fillStyle = "black"
-      ctx.font = "16px Arial"
-      ctx.textAlign = "center"
-      ctx.fillText("Afstanden", startX + (wallWidth * scale) / 2, itemDimensionY - 25)
-
-      // Teken verticale lijnen voor elk item en de afstanden
-      for (let i = 0; i < wallItems.length; i++) {
-        const item = wallItems[i]
-        const itemWidth = item.width / 1000
-        const itemX = item.position
-        const canvasX = startX + itemX * scale
-
-        // Bepaal de kleur voor het item op basis van het type
-        let itemTextColor = "black"
-        if (item.type === "sectionaaldeur") {
-          itemTextColor = "#00008B" // Donkerblauw
-        } else if (item.type === "loopdeur") {
-          itemTextColor = "#006400" // Donkergroen
-        } else if (item.type === "raam") {
-          itemTextColor = "#FF0000" // Rood
-        }
-
-        // Teken verticale lijn aan het begin van het item
-        ctx.beginPath()
-        ctx.moveTo(canvasX, itemDimensionY - 5)
-        ctx.lineTo(canvasX, itemDimensionY + 5)
-        ctx.stroke()
-
-        // Teken verticale lijn aan het einde van het item
-        ctx.beginPath()
-        ctx.moveTo(canvasX + itemWidth * scale, itemDimensionY - 5)
-        ctx.lineTo(canvasX + itemWidth * scale, itemDimensionY + 5)
-        ctx.stroke()
-
-        // Teken de item breedte in de juiste kleur
-        ctx.textAlign = "center"
-        ctx.fillStyle = itemTextColor
-        ctx.font = "14px Arial"
-        ctx.fillText(`${item.width}mm`, canvasX + (itemWidth * scale) / 2, itemDimensionY - 10)
-
-        // Teken de afstand vanaf links (voor het eerste item)
-        if (i === 0 && itemX > 0) {
-          ctx.textAlign = "center"
-          ctx.fillStyle = "black"
-          ctx.fillText(`${Math.round(itemX * 1000)}mm`, startX + (itemX * scale) / 2, itemDimensionY + 20)
-        }
-
-        // Teken de afstand tussen items
-        if (i < wallItems.length - 1) {
-          const nextItem = wallItems[i + 1]
-          const distanceBetween = nextItem.position - (itemX + itemWidth)
-
-          if (distanceBetween > 0) {
-            ctx.textAlign = "center"
-            ctx.fillStyle = "black"
-            ctx.fillText(
-              `${Math.round(distanceBetween * 1000)}mm`,
-              canvasX + itemWidth * scale + (distanceBetween * scale) / 2,
-              itemDimensionY + 20,
-            )
-          }
-        }
-
-        // Teken de afstand naar rechts (voor het laatste item)
-        if (i === wallItems.length - 1) {
-          const distanceToRight = wallWidth - (itemX + itemWidth)
-          if (distanceToRight > 0) {
-            ctx.textAlign = "center"
-            ctx.fillStyle = "black"
-            ctx.fillText(
-              `${Math.round(distanceToRight * 1000)}mm`,
-              canvasX + itemWidth * scale + (distanceToRight * scale) / 2,
-              itemDimensionY + 20,
-            )
-          }
-        }
-      }
-    }
-
-    // Teken individuele dimensielijnen voor elk item
+    // VEREENVOUDIGDE AANPAK: Teken individuele dimensielijnen voor elk item
     wallItems.forEach((item, index) => {
       // Genereer een naam voor het item als het nog geen naam heeft
       let itemName = item.name
@@ -315,6 +251,8 @@ export default function TwoDView({
 
       const itemWidth = item.width / 1000
       const itemX = item.position
+
+      // Bereken de positie op de canvas - GEEN SPIEGELING MEER
       const canvasX = startX + itemX * scale
 
       // Bepaal de kleur voor het item op basis van het type
@@ -357,24 +295,26 @@ export default function TwoDView({
       // Teken de item breedte
       ctx.textAlign = "center"
       ctx.fillStyle = itemTextColor
-      ctx.fillText(`${item.width}mm`, canvasX + (itemWidth * scale) / 2, itemHorizontalDimensionY - 10)
+      ctx.fillText(`${item.width}`, canvasX + (itemWidth * scale) / 2, itemHorizontalDimensionY - 10)
+
+      // VEREENVOUDIGDE AANPAK: Teken duidelijke horizontale afstandslijnen
 
       // Teken de afstand vanaf links
       if (itemX > 0) {
-        ctx.textAlign = "center"
-        ctx.fillStyle = "black"
-        ctx.fillText(`${Math.round(itemX * 1000)}mm`, startX + (itemX * scale) / 2, itemHorizontalDimensionY + 20)
+        // Teken een horizontale lijn met pijlen
+        drawHorizontalDistanceLine(ctx, startX, canvasX, itemHorizontalDimensionY + 20, `${Math.round(itemX * 1000)}`)
       }
 
       // Teken de afstand naar rechts
       const distanceToRight = wallWidth - (itemX + itemWidth)
       if (distanceToRight > 0) {
-        ctx.textAlign = "center"
-        ctx.fillStyle = "black"
-        ctx.fillText(
-          `${Math.round(distanceToRight * 1000)}mm`,
-          canvasX + itemWidth * scale + (distanceToRight * scale) / 2,
+        // Teken een horizontale lijn met pijlen
+        drawHorizontalDistanceLine(
+          ctx,
+          canvasX + itemWidth * scale,
+          startX + wallWidth * scale,
           itemHorizontalDimensionY + 20,
+          `${Math.round(distanceToRight * 1000)}`,
         )
       }
 
@@ -394,7 +334,7 @@ export default function TwoDView({
           startY + wallHeight * scale,
           itemVerticalDimensionX,
           startY + wallHeight * scale - itemY * scale,
-          `${item.elevation}mm`,
+          `${item.elevation}`,
           true,
           true,
           itemTextColor,
@@ -407,7 +347,7 @@ export default function TwoDView({
           startY + wallHeight * scale - itemY * scale,
           itemVerticalDimensionX - 30,
           startY + wallHeight * scale - (itemY + itemHeight) * scale,
-          `${item.height}mm`,
+          `${item.height}`,
           true,
           true,
           itemTextColor,
@@ -422,7 +362,7 @@ export default function TwoDView({
             startY + wallHeight * scale - (itemY + itemHeight) * scale,
             itemVerticalDimensionX - 60,
             startY,
-            `${Math.round(distanceToGutter * 1000)}mm`,
+            `${Math.round(distanceToGutter * 1000)}`,
             true,
             true,
             itemTextColor,
@@ -439,7 +379,7 @@ export default function TwoDView({
           startY + wallHeight * scale,
           itemVerticalDimensionX,
           startY + wallHeight * scale - itemHeight * scale,
-          `${item.height}mm`,
+          `${item.height}`,
           true,
           true,
           itemTextColor,
@@ -454,7 +394,7 @@ export default function TwoDView({
             startY + wallHeight * scale - itemHeight * scale,
             itemVerticalDimensionX - 30,
             startY,
-            `${Math.round(distanceToGutter * 1000)}mm`,
+            `${Math.round(distanceToGutter * 1000)}`,
             true,
             true,
             itemTextColor,
@@ -480,7 +420,43 @@ export default function TwoDView({
       canvasWidth / 2,
       50,
     )
-  }, [dimensions, items, selectedView, scale, structureName])
+  }, [dimensions, items, selectedView, scale, structureName, doorOpeningType, panelThickness])
+
+  // Nieuwe functie voor het tekenen van horizontale afstandslijnen met pijlen
+  function drawHorizontalDistanceLine(ctx: CanvasRenderingContext2D, x1: number, x2: number, y: number, text: string) {
+    const arrowSize = 6
+
+    // Teken de horizontale lijn
+    ctx.beginPath()
+    ctx.moveTo(x1, y)
+    ctx.lineTo(x2, y)
+    ctx.stroke()
+
+    // Teken de pijlpunten aan beide uiteinden
+    // Linker pijlpunt
+    ctx.beginPath()
+    ctx.moveTo(x1, y)
+    ctx.lineTo(x1 + arrowSize, y - arrowSize / 2)
+    ctx.lineTo(x1 + arrowSize, y + arrowSize / 2)
+    ctx.closePath()
+    ctx.fillStyle = "black"
+    ctx.fill()
+
+    // Rechter pijlpunt
+    ctx.beginPath()
+    ctx.moveTo(x2, y)
+    ctx.lineTo(x2 - arrowSize, y - arrowSize / 2)
+    ctx.lineTo(x2 - arrowSize, y + arrowSize / 2)
+    ctx.closePath()
+    ctx.fillStyle = "black"
+    ctx.fill()
+
+    // Teken de tekst in het midden
+    ctx.textAlign = "center"
+    ctx.fillStyle = "black"
+    ctx.font = "14px Arial"
+    ctx.fillText(text, (x1 + x2) / 2, y - 10)
+  }
 
   // Update de drawDimensionLine functie om kleuren te ondersteunen
   function drawDimensionLine(
@@ -698,4 +674,3 @@ export default function TwoDView({
     </Card>
   )
 }
-

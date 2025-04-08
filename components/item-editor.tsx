@@ -49,6 +49,7 @@ export default function ItemEditor({ item, wallWidth, onUpdate, onDelete, onClos
     onUpdate(item.id, { name })
   }
 
+  // Wijzig de handleItemTypeChange functie om de standaardwaarden aan te passen voor deuren en ramen
   const handleItemTypeChange = (type: ItemType) => {
     setItemType(type)
     onUpdate(item.id, { type })
@@ -65,10 +66,10 @@ export default function ItemEditor({ item, wallWidth, onUpdate, onDelete, onClos
       setElevation(0)
       onUpdate(item.id, { width: 1000, height: 2300, elevation: 0 })
     } else if (type === "raam") {
-      setWidth(2000)
+      setWidth(1000)
       setHeight(1000)
       setElevation(1000)
-      onUpdate(item.id, { width: 2000, height: 1000, elevation: 1000 })
+      onUpdate(item.id, { width: 1000, height: 1000, elevation: 1000 })
     }
   }
 
@@ -290,4 +291,3 @@ function getItemTypeName(type: ItemType): string {
       return "Item"
   }
 }
-

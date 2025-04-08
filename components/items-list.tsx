@@ -107,4 +107,3 @@ function getWallName(wall: string): string {
       return wall
   }
 }
-
